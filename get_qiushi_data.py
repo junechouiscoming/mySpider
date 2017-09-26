@@ -3,8 +3,9 @@ __author__ = 'JuneChou'
 __date__ = '2017/9/26 17:06'
 
 import requests
-import json, jsonpath
+import json
 from lxml import etree
+from bs4 import BeautifulSoup
 
 class QiuShi():
     def __init__(self):
@@ -16,25 +17,43 @@ class QiuShi():
     def getUserUrl(self, url):
         html = requests.get(url, self.headers).content
 
-        # 利用xpath查找用户的链接
+        # 利用xpath查找页面所有帖子所在的位置
         xml_obj = etree.HTML(html)
-        userLinkList = xml_obj.xpath('//span[@class="stats-comments"]/a/@href')
-        # print userLinkList
-        for userLink in userLinkList:
-            userFullUrl = self.mainurl + userLink
-            self.getUserData(userFullUrl)
+        results = xml_obj.xpath('//div[contains(@id,"qiushi_tag")]')
 
-    def getUserData(self, url):
-        html = requests.get(url, self.headers).content
 
-        xml_obj = etree.HTML(html)
+        items = []
+        for site in results:
+            item = {}
 
-        likeUserLinkList = xml_obj.xpath('//div[@class="like-icon"]/a/@href')
-        commentUserLinkList = xml_obj.xpath('//div[@class="comments-list clearfix"]//div[@class="avatars"]/a/@href')
-        print commentUserLinkList
+            imgUrl = site.xpath('./div[@class="author clearfix"]/a/img/@src')
+            if imgUrl != []:
+                imgUrl = imgUrl[0].encode('utf-8')
+            else:
+                imgUrl = '该用户已匿名，无法查看头像地址'
 
-    def saveJson(self):
-        pass
+            username = site.xpath('.//img/@alt')[0].encode('utf-8')
+
+            content = site.xpath('.//div[@class="content"]/span')[0].text.strip().encode('utf-8')
+
+            likeNums = site.xpath('.//i')[0].text.encode('utf-8')
+
+            commentNums = site.xpath('.//i')[1].text.encode('utf-8')
+
+            item['imgUrl'] = imgUrl
+            item['username'] = username
+            item['content'] = content
+            item['likeNums'] = likeNums
+            item['commentNums'] = commentNums
+
+            items.append(item)
+
+        self.saveJson(items)
+
+    def saveJson(self, list):
+        json_obj = json.dumps(list, ensure_ascii=False)
+        with open('qiubai.json', 'w') as f:
+            f.write(json_obj)
 
 
 if __name__ == '__main__':
